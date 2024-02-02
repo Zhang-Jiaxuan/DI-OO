@@ -88,33 +88,17 @@ class tabularDataset(Dataset):
 class SimpleCNN(nn.Module):
     def __init__(self, input_size, num_classes):
         super(SimpleCNN, self).__init__()
-
-        # 一维卷积层，注意修改卷积核的输入通道数为1
         self.conv1 = nn.Conv1d(in_channels=1, out_channels=16, kernel_size=3)
-
-        # 池化层
         self.pool = nn.MaxPool1d(kernel_size=2)
-
-        # 全连接层
         self.fc1 = nn.Linear(16 * ((input_size - 2) // 2), 32)  # 计算输出特征数量
         self.fc2 = nn.Linear(32, num_classes)
 
     def forward(self, x):
-        # 输入数据的形状应该是 (batch_size, 1, sequence_length)
-
-        # 执行卷积操作
         x = self.conv1(x)
-
-        # 执行池化操作
         x = self.pool(x)
-
-        # 展平特征图
         x = x.view(x.size(0), -1)
-
-        # 执行全连接操作
         x = torch.relu(self.fc1(x))
         x = self.fc2(x)
-        #最后用sigmoidc处理一下？
         x = torch.sigmoid(x)
         return x
 
