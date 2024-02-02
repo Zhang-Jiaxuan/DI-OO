@@ -1,0 +1,10 @@
+{
+    "dataset": "Bank",
+    "mv_type": "systematic",
+    "train/val/test": "1400/100/600",
+    "num_feature": 8,
+    "percent_mv_cells": 0.1994642857142857,
+    "percent_mv_rows": 0.9814285714285714,
+    "mv_columns": "a2pop(num), a3pop(num), ",
+    "seed": 1
+}
