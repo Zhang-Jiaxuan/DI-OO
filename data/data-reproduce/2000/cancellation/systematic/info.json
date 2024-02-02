@@ -1,0 +1,10 @@
+{
+    "dataset": "cancellation",
+    "mv_type": "systematic",
+    "train/val/test": "1400/100/600",
+    "num_feature": 17,
+    "percent_mv_cells": 0.15911764705882353,
+    "percent_mv_rows": 0.9985714285714286,
+    "mv_columns": "required_car_parking_space(num), lead_time(num), arrival_year(num), market_segment_type(num), repeated_guest(num), avg_price_per_room(num), no_of_special_requests(num), ",
+    "seed": 1
+}
