@@ -468,48 +468,19 @@ criterion = nn.CrossEntropyLoss()
 # 实例化模型
 model = copy.deepcopy(MODEL)
 model = model.to(DEVICE)
-# 初始化优化器
 optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
-# 测试模型是否没问题
-# rn=torch.rand(3,8).to(DEVICE)
-# model(rn)
 
 
-# 训练100轮
 TOTAL_EPOCHS = 100
-# 记录损失函数
 losses = []
-# 初始化一下model模型？
-# for epoch in range(TOTAL_EPOCHS):
-#     model.train()
-#     for i, (x, y) in enumerate(val_dl):
-#         x = x.float().to(DEVICE)  # 输入必须为float类型
-#         # print(type(x))
-#         # print(x)
-#         y = y.long().to(DEVICE)  # 结果标签必须为long类型
-#         # 清零
-#         optimizer.zero_grad()
-#         outputs = model(x)
-#         # 计算损失函数
-#         loss = criterion(outputs, y)
-#         loss.backward()
-#         optimizer.step()
-#         losses.append(loss.cpu().data.item())
-#     print('Epoch : %d/%d,   Loss: %.4f' % (epoch + 1, TOTAL_EPOCHS, np.mean(losses)))
-# model2=copy.deepcopy(model)
-# model2.load_state_dict(model.state_dict())
 len_dirty_rows = len(dirty_rows)
 print('len_dirty_rows:', len_dirty_rows)
 ##################元数据（干净）##################################
-# 将一个可迭代对象变成一个无限循环的迭代器
-###############为什么又训练一次（应该重点在这次，上面那个应该是对照组）################################
 ############初始化权重############################
 shape = np.shape(dirty_rows)
 dirty_matrix = torch.zeros(shape[:2])
-# print(dirty_matrix)#权重是覆盖还是叠加？
-########################################PF##############
-###########用最原始的脏数据中干净的数据集训练模型得到最初的acc0#####################
+# print(dirty_matrix)
 if len(clean_rows)==0:
     clean_rows, clean_rows_labels, dirty_rows, dirty_rows_labels, new_gt_indices, dirty_matrix,clean_indices,dirty_indices = cleanByIndex(
         0, clean_rows, clean_rows_labels, dirty_rows, dirty_rows_labels, new_gt_indices, dirty_matrix,clean_indices,dirty_indices)
@@ -727,19 +698,6 @@ for ep in range(1, len_dirty_rows + 2):
     # print('w_loss', w_loss)
     # tmp_flag, tmp_sample = False, []
 
-    #利用对比学习初始化w_list
-    #or
-    #利用对比学习初始化模型参数
-    #or
-    #利用对比学习调整元学习的权重？
-    # 干净数据——>脏数据+干净数据权重，干净是1脏的是0，按照这个来初始化干净的权重
-    #每个脏数据的loss
-
-    #干净数据——>脏数据权重
-
-
-    # 使用通过可信度，筛选好的train_loader训练
-
     # tmp_flag, tmp_sample = False, []
     for i, (inputs, labels) in enumerate(train_loader):  # 随机sample， batch_size=1024
         # print(i)
@@ -749,44 +707,21 @@ for ep in range(1, len_dirty_rows + 2):
             # print(inputs.size())
             print(inputs.size(0))
             continue
-            # tmp_sample.append((inputs[0], labels[0]))
-            # tmp_flag = True
-        #     continue#此次sample的训练size为1，不能作为训练集参与训练。直接进入下一个小sample
-        # if tmp_flag:
-        #     tmp_flag = False#下一个
-
         inputs, labels = inputs.float().to(device=DEVICE, non_blocking=True), \
             labels.long().to(device=DEVICE, non_blocking=True)
         optimizer.zero_grad()  # 将优化器中所有参数的梯度设置为零的函数
         with higher.innerloop_ctx(model, optimizer) as (meta_model, meta_opt):
             # 元数据是用清洗之后的数据代替。
-            # 1. Update meta model on training data（forward noisy & backward noisy）
-            # forward nosiy
             meta_train_outputs = meta_model(inputs)
-            # 在计算损失函数 meta_train_loss 时，将 criterion.reduction 设置为了 'none'，
-            # 这意味着返回的是每个样本的损失值，而不是所有样本损失值的平均值。
-            # 这样做是为了后续方便使用全 0 张量 eps 记录不同任务的梯度信息。
             criterion.reduction = 'none'
             meta_train_loss = criterion(meta_train_outputs, meta_train_outputs)
-            # 我们可以使用这个全 0 张量来保存梯度信息，例如在元学习中，用于记录不同任务的梯度信息并更新模型。
             eps = torch.zeros(meta_train_loss.size(), requires_grad=True, device=DEVICE)  # 创建元素值全为0的张量
-            # 将损失函数 meta_train_loss 和全 0 张量 eps 相乘，得到的结果再求和，可以得到一个元素值为 0 的张量，
-            # 但是 eps 张量的梯度信息被保留下来
             meta_train_loss = torch.sum(eps * meta_train_loss)
-            # 使用元优化器 meta_opt 对这个张量进行反向传播，并更新元模型的参数。
-            # 因此可以记录 meta_train_loss 中的梯度信息，方便在反向传播时使用
             meta_opt.step(meta_train_loss)
 
             # 2. Compute grads of eps on meta validation data（forward clean & backward clean）
             # 这里的metadata我们用训练集中干净的行来代替
             meta_inputs, meta_labels = next(meta_loader)
-            # print('meta_inputs.size()')
-            # print(meta_inputs.size())
-            #
-            # print('meta_inputs.size()')
-            # while(meta_inputs.size()==0):
-            #     meta_inputs, meta_labels = next(meta_loader)
-            #     print('meta_inputs.size()==0')
             meta_inputs, meta_labels = meta_inputs.float().to(device=DEVICE, non_blocking=True), \
                 meta_labels.long().to(device=DEVICE, non_blocking=True)
             if (meta_inputs.size(0) <= 1):
@@ -834,41 +769,24 @@ for ep in range(1, len_dirty_rows + 2):
         train_loss += minibatch_loss.item() * outputs.shape[0]
         _, pred_labels = torch.max(outputs.data, 1)
         train_acc += torch.sum(torch.eq(pred_labels, labels)).item()
-    # 利用权重，清洗一个脏数据行
-    # print('w_list')
-    # print(w_list)
     dirty_row_len=len(w_list)
     for i in range(dirty_row_len):
         dirty_matrix[i, random_id_list[i]] = w_list[i]
-    # print('dirty_matrix:')
-    # print(dirty_matrix)
-    weight_sum_list = torch.sum(dirty_matrix, dim=1)  # 按照权重的大小阶梯的不同，把这个阶梯当作不同的action
-
-    # 利用MAB决定这个index_to_clean
-    # 对x进行排序，并返回排序后的索引
+    weight_sum_list = torch.sum(dirty_matrix, dim=1) 
     # sorted_idx = torch.argsort(weight_sum_list,stable=True, descending=True)
     sorted_arr = sorted(weight_sum_list)
     arr = [sorted_arr.index(x) for x in weight_sum_list]#idx:大小weight_sum_list标识
-    #大小相同的该怎么处理？？？？？？？？？？？？？？？？？？？？？？？
-    # print(arr)########标明脏数据权重的大小关系
-    #想知道排序之后，每个排序后数字的原始索引，以便
-
-    # 为了按照权重划分数据，进行选择，将数据按权重大小百分比进行划分，直接将权重按照大小排序，并指明每个权重的所在位置，直接按照idx划分即可。
     indexed_arr = [(i, x) for i, x in enumerate(arr)]
     sorted_arr = sorted(indexed_arr, key=lambda x: x[1])
     # print(sorted_arr)
     idx = [x[0] for x in sorted_arr]
     if len(idx) == 0:
         continue
-    # 选择臂，现在是每选择一个清洗的返回一次reward。
-    chosen_arm = algo.select_arm()  # 每选择一次，就更新被选择arm的value，同时统计此次的reward 累计比较。
-    #选中要操作的arm，从此段集合中选出要清洗的一个脏数据。
+    chosen_arm = algo.select_arm()  
     print('chosen_arm')
     print(chosen_arm)
-    index_to_clean=idx[int(((chosen_arm+1)/n_arms)*(dirty_row_len-1))]#选值最大的那个，后面看需不需要在区间内随机选择
+    index_to_clean=idx[int(((chosen_arm+1)/n_arms)*(dirty_row_len-1))]
     # index_to_clean=index_to_clean.item()
-    #在此处清洗，清洗之后可以得到reward，更新value
-    #等下清洗一个
     #index_to_clean = torch.argmin(weight_sum_list)  # 权重之和最小的最需要清洗
     print('index_to_clean')
     print(index_to_clean)
@@ -895,11 +813,8 @@ for ep in range(1, len_dirty_rows + 2):
     model3.train()
     # 要转换形式，不然会报错RuntimeError: grad can be implicitly created only for scalar outputs
     criterion.reduction = 'mean'
-    # 训练100轮
     TOTAL_EPOCHS = 100
-    # 记录损失函数
     losses = []
-    # 干净数据集训练模型，用干净的验证集
     for epoch in range(TOTAL_EPOCHS):
         for i, (x, y) in enumerate(clean_dl):
             if (x.size(0) <= 1):  #
@@ -908,14 +823,12 @@ for ep in range(1, len_dirty_rows + 2):
                 # print(inputs.size())
                 print(x.size(0))
                 continue
-            x = x.float().to(DEVICE)  # 输入必须为float类型
+            x = x.float().to(DEVICE)  
             # print(type(x))
             # print(x)
-            y = y.long().to(DEVICE)  # 结果标签必须为long类型
-            # 清零
+            y = y.long().to(DEVICE) 
             optimizer3.zero_grad()
             outputs = model3(x)
-            # 计算损失函数
             loss = criterion(outputs, y)
             loss.backward()
             optimizer3.step()
@@ -949,19 +862,6 @@ for ep in range(1, len_dirty_rows + 2):
     # print(reward)
     correct=new_correct
     algo.update(chosen_arm, reward)
-    #对一个排好序的数组，按照百分比划分成10/100份，获取开始和结束的位置，并在其中随机挑选？还是直接选那个最大的？
-    #反正最终要给出一个select_index
-
-    #还是从固定的100份中选择？
-
-    #这个idx的最大值（前10%，前10%~20%）
-    # 按照权重，把分成数据排序，分成100/1000份，从这些中选择（把这些份当成可以选择的action,即arm）
-    #然后局部贪婪地选择所选arm中最大的那个
-
-    #这些action用ucb？
-
-    #reward用精确度表示。/#或者直接用推测命中增长率，他们前后还是相互影响的，#或者只把reward做成+1-1和0
-
 result=0
 end = time.time()
 running_time = end - start
