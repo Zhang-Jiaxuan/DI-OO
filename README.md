@@ -8,6 +8,7 @@ The source code for paper: Think Twice Before Imputation: Optimizing Data Imputa
 2. Using the DI-OO system to impute the incomplete dataset based on the downstream model
 
    We provide examples of two downstream models, i.e. DI-OO_CNN.py and DI-OO_MLP.py
+   
    `python DI-OO_MLP.py --dataset "cancellation" --data_size 2000 --value 0.1 --input_size 17 --param_sens 0.1 --mv_type systematic --n_arms 3`
 
 # Reference
