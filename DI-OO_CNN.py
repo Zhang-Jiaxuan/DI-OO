@@ -174,6 +174,52 @@ class UCB1():
         return
     def delete(self,ex):
         self.ex.append(ex)
+
+class UCB2():
+    def __init__(self, counts, values,beta):
+        self.counts = counts
+        self.values = values
+        self.beta=beta
+        self.ex=[]
+        return
+
+    def initialize(self, n_arms):  # 初始化有多少个臂
+        self.counts = [0 for col in range(n_arms)]
+        self.values = [0.0 for col in range(n_arms)]
+        return
+
+    def select_arm(self):
+        n_arms = len(self.counts)
+        # 确保所有的臂都至少玩了一次
+        # 从而可以对所有可用的臂有一个初始化的了解
+        for arm in range(n_arms):
+            if self.counts[arm] == 0:
+                return arm
+        ucb_values = [0.0 for arm in range(n_arms)]
+        total_counts = sum(self.counts)
+        for arm in range(n_arms):
+            # 使用置信区间上界
+            # 置信度为1-2/total_counts
+            bonus = math.sqrt((2 * math.log(total_counts)) /
+                              float(self.counts[arm]))
+            # ucb_values[arm] = self.values[arm] + bonus
+            ucb_values[arm] = self.values[arm]*self.beta + bonus#调整参数
+        if len(self.ex)>0:
+            for i in self.ex:
+                ucb_values[i]=-1#已删除
+
+        return index_max(ucb_values)  # 返回ucbvalue最大的索引
+
+    def update(self, chosen_arm, reward):  # 更新被选中的那个arm的value
+        self.counts[chosen_arm] = self.counts[chosen_arm] + 1
+        n = self.counts[chosen_arm]
+
+        value = self.values[chosen_arm]
+        new_value = ((n - 1) / float(n)) * value + (1 / float(n)) * reward
+        self.values[chosen_arm] = new_value  # 更新arm
+        return
+    def delete(self,ex):
+        self.ex.append(ex)
 #################数据##########################
 def make_space(X_train_repairs, X_val, gt=None):
     space_X = np.transpose(X_train_repairs, (1, 0, 2))  ## shape (#row, #repair, #column)
@@ -652,7 +698,11 @@ start = time.time()
 SHOW_ACC = 0
 
 result_auc=[0 for x_d in range(len(x_data)) ]
-algo= UCB1([], [],beta=args.value)
+if args.dataset in ["cancellation","Supreme"]:
+    algo= UCB1([], [],beta=args.value)
+else:
+    algo= UCB2([], [],beta=args.value)
+    
 algo.initialize(n_arms)  # 初始化UCB，长度即为action个数,先设置len(arms)=10，即将脏数据集分成10份，当作10个arm
 for ep in range(1, len_dirty_rows + 2):
     # np.random.seed(seed)  # numpy产生的随机数一致
