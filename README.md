@@ -11,5 +11,8 @@ The source code for paper: Think Twice Before Imputation: Optimizing Data Imputa
    
    `python DI-OO_MLP.py --dataset "cancellation" --data_size 2000 --value 0.1 --input_size 17 --param_sens 0.1 --mv_type systematic --n_arms 3`
 
+environment：
+   Python 3.7.15
+   
 # Reference
 https://github.com/chu-data-lab/CPClean
